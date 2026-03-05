@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: ai-travel-planner-api
+    env: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DB_URL
+        value: sqlite:///./travel_planner.db
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "60"
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: GEMINI_API_KEY_ENCRYPTED
+        sync: false
+      - key: APP_ENCRYPTION_KEY
+        sync: false
