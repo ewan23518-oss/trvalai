@@ -1,4 +1,14 @@
-﻿const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+﻿const ENV_API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const PROD_FALLBACK_API = "https://ai-travel-planner-api.onrender.com";
+
+function getApiBaseUrl(): string {
+  if (ENV_API_BASE_URL) return ENV_API_BASE_URL;
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    if (host === "localhost" || host === "127.0.0.1") return "http://localhost:8000";
+  }
+  return PROD_FALLBACK_API;
+}
 
 export type TripPayload = {
   destination: string;
@@ -79,141 +89,185 @@ async function parseOrThrow(res: Response, fallback: string) {
   return res.json();
 }
 
+async function fetchJson(path: string, init: RequestInit, fallback: string) {
+  const base = getApiBaseUrl();
+  try {
+    const res = await fetch(`${base}${path}`, init);
+    return parseOrThrow(res, fallback);
+  } catch (err) {
+    if (err instanceof Error && err.message !== fallback) {
+      throw err;
+    }
+    throw new Error(`无法连接后端服务：${base}。请检查 NEXT_PUBLIC_API_BASE_URL 或后端是否在线。`);
+  }
+}
+
 export async function register(body: { email: string; password: string; full_name: string }) {
-  const res = await fetch(`${API_BASE_URL}/auth/register`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  return parseOrThrow(res, "注册失败");
+  return fetchJson(
+    "/auth/register",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    "注册失败",
+  );
 }
 
 export async function login(body: { email: string; password: string }) {
-  const res = await fetch(`${API_BASE_URL}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  return parseOrThrow(res, "登录失败");
+  return fetchJson(
+    "/auth/login",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    "登录失败",
+  );
 }
 
 export async function createTrip(token: string, body: TripPayload) {
-  const res = await fetch(`${API_BASE_URL}/trip/create`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+  return fetchJson(
+    "/trip/create",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
     },
-    body: JSON.stringify(body),
-  });
-  return parseOrThrow(res, "创建行程失败");
+    "创建行程失败",
+  );
 }
 
 export async function getTrip(token: string, tripId: number) {
-  const res = await fetch(`${API_BASE_URL}/trip/${tripId}`, {
-    headers: { Authorization: `Bearer ${token}` },
-    cache: "no-store",
-  });
-  return parseOrThrow(res, "读取行程失败");
+  return fetchJson(
+    `/trip/${tripId}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    },
+    "读取行程失败",
+  );
 }
 
 export async function chatWithAI(token: string, payload: { trip_id: number; message: string }) {
-  const res = await fetch(`${API_BASE_URL}/ai/chat`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+  return fetchJson(
+    "/ai/chat",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
     },
-    body: JSON.stringify(payload),
-  });
-  return parseOrThrow(res, "聊天调用失败");
+    "聊天调用失败",
+  );
 }
 
 export async function getRecommendations(destination: string) {
   const qs = new URLSearchParams({ destination }).toString();
-  const res = await fetch(`${API_BASE_URL}/recommendations?${qs}`, { cache: "no-store" });
-  return parseOrThrow(res, "推荐加载失败");
+  return fetchJson(`/recommendations?${qs}`, { cache: "no-store" }, "推荐加载失败");
 }
 
 export async function getInspiration(payload: InspirationPayload) {
-  const res = await fetch(`${API_BASE_URL}/ai/inspiration`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  return parseOrThrow(res, "灵感推荐失败");
+  return fetchJson(
+    "/ai/inspiration",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+    "灵感推荐失败",
+  );
 }
 
 export async function optimizeRoute(payload: RouteOptimizePayload) {
-  const res = await fetch(`${API_BASE_URL}/ai/optimize-route`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  return parseOrThrow(res, "路线优化失败");
+  return fetchJson(
+    "/ai/optimize-route",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+    "路线优化失败",
+  );
 }
 
 export async function calculateBudget(payload: BudgetPayload) {
-  const res = await fetch(`${API_BASE_URL}/ai/calculate-budget`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  return parseOrThrow(res, "预算计算失败");
+  return fetchJson(
+    "/ai/calculate-budget",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+    "预算计算失败",
+  );
 }
 
 export async function generateGuides(payload: GuidePayload) {
-  const res = await fetch(`${API_BASE_URL}/ai/generate-guides`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  return parseOrThrow(res, "攻略生成失败");
+  return fetchJson(
+    "/ai/generate-guides",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+    "攻略生成失败",
+  );
 }
 
 export async function getAssistantContext(payload: AssistantContextPayload) {
-  const res = await fetch(`${API_BASE_URL}/ai/assistant-context`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  return parseOrThrow(res, "旅行助手提醒生成失败");
+  return fetchJson(
+    "/ai/assistant-context",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+    "旅行助手提醒生成失败",
+  );
 }
 
 export async function createCommunityPost(payload: CommunityPostPayload) {
-  const res = await fetch(`${API_BASE_URL}/community/posts`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  return parseOrThrow(res, "发布攻略失败");
+  return fetchJson(
+    "/community/posts",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+    "发布攻略失败",
+  );
 }
 
 export async function getCommunityPosts() {
-  const res = await fetch(`${API_BASE_URL}/community/posts`, { cache: "no-store" });
-  return parseOrThrow(res, "获取社区内容失败");
+  return fetchJson("/community/posts", { cache: "no-store" }, "获取社区内容失败");
 }
 
 export async function likeCommunityPost(postId: number) {
-  const res = await fetch(`${API_BASE_URL}/community/posts/${postId}/like`, { method: "POST" });
-  return parseOrThrow(res, "点赞失败");
+  return fetchJson(`/community/posts/${postId}/like`, { method: "POST" }, "点赞失败");
 }
 
 export async function favoriteCommunityPost(postId: number) {
-  const res = await fetch(`${API_BASE_URL}/community/posts/${postId}/favorite`, { method: "POST" });
-  return parseOrThrow(res, "收藏失败");
+  return fetchJson(`/community/posts/${postId}/favorite`, { method: "POST" }, "收藏失败");
 }
 
 export async function copyCommunityRoute(postId: number) {
-  const res = await fetch(`${API_BASE_URL}/community/posts/${postId}/copy-route`, { method: "POST" });
-  return parseOrThrow(res, "复制路线失败");
+  return fetchJson(`/community/posts/${postId}/copy-route`, { method: "POST" }, "复制路线失败");
 }
 
 export async function commentCommunityPost(postId: number, comment: string) {
-  const res = await fetch(`${API_BASE_URL}/community/posts/${postId}/comments`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ comment }),
-  });
-  return parseOrThrow(res, "评论失败");
+  return fetchJson(
+    `/community/posts/${postId}/comments`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ comment }),
+    },
+    "评论失败",
+  );
 }
